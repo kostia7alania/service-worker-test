@@ -1,52 +1,74 @@
+const scope = '/useful/konkurs-prognozov';
 const wrapper = '#pwa-notification';
-const button = '#sw-reload'
+const button = '#sw-reload';
 let newWorker;
 
 if ('serviceWorker' in window.navigator) {
-    window.addEventListener('load', () => {
-
-        // The click event on the notification
-        document.querySelector('#sw-reload').addEventListener('click', e => {
-            e.preventDefault()
-            newWorker.postMessage({ action: 'skipWaiting' });
-        });
-
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/useful/konkurs-prognozov' })
-            .then(reg => {
-                console.warn('[SW] 😀 registered! in scope', reg.scope, reg)
-                reg.addEventListener('updatefound', () => {
-                    alert('UPD  FOUND!')
-                    // An updated service worker has appeared in reg.installing!
-                    newWorker = reg.installing;
-                    newWorker.onstatechange = () => {
-                        console.warn('[SW]  , STATECHANGE = > ', newWorker.state)
-                        // Has service worker state changed?
-                        switch (newWorker.state) {
-                            case 'activated':
-                                // There is a new service worker available, show the notification
-                                if (navigator.serviceWorker.controller) {
-                                    const notification = document.querySelector(wrapper);
-                                    notification.style.display = 'block';
-                                }
-                                break;
-                            case 'installed':
-                                console.log('INSTALLED !')
-                        }
-                        // debugger
-                        const notification = document.querySelector(wrapper);
-                        notification.style.display = 'block';
-                    };
-                });
-            })
-            .catch(err => console.warn('[SW] 🥺  register error =>', err))
-    })
+    window.onload = loadHandler;
+} else {
+    console.warn("[SW] SW aren't supported.");
 }
 
-let refreshing;
 // The event listener that is fired when the service worker updates
 // Here we reload the page
-navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return;
+navigator.serviceWorker.oncontrollerchange = oncontrollerchange
+
+function loadHandler() {
+    document.querySelector('#sw-reload').onclick = skipWaiting; // The click event on the notification
+    navigator.serviceWorker.register('/service-worker.js', { scope })
+        .then(navigator.serviceWorker.ready)
+        .then(regHandler)
+        .catch(err => console.error('[SW] 🥺  register error =>', err))
+}
+
+
+let refreshing;
+function oncontrollerchange() {
+    if (!refreshing) return;
     window.location.reload();
     refreshing = true;
-});
+}
+
+function regHandler(reg) {
+    console.warn('[SW] 😀 registered! in scope', reg.scope, reg)
+
+    // Do a one-off check to see if a service worker's in control.
+    if (navigator.serviceWorker.controller) {
+        console.warn(`[SW] This page is currently controlled by: ${navigator.serviceWorker.controller}`);
+    } else {
+        console.warn("[SW] This page isn't currently controlled by a SW.");
+    }
+
+    reg.onupdatefound = () => {
+        newWorker = reg.installing // An updated service worker has appeared in reg.installing!
+        newWorker.onstatechange = () => { // Has service worker state changed?
+            console.warn('[SW] STATECHANGE => ', newWorker.state)
+            switch (newWorker.state) {
+                case 'installing': break; // the install event has fired, but not yet complete
+                case 'installed': break; // install complete
+                case 'activating': break; // the activate event has fired, but not yet complete
+                case 'activated': // fully active
+                    if (!navigator.serviceWorker.controller) {
+                        return console.error('[SW] controller is not in navigator.serviceWorker!')
+                    }
+                    showUpdateRequest(); // There is a new service worker available, show the notification
+                    break;
+                case 'redundant': // discarded. Either failed install, or it's been replaced by a newer version
+                    hideUpdateRequest();
+                    break;
+            }
+        };
+    }
+}
+
+function skipWaiting(e) {
+    e.preventDefault()
+    newWorker.postMessage({ action: 'skipWaiting' });
+}
+
+function showUpdateRequest() {
+    document.querySelector(wrapper).style.display = 'block';
+}
+function hideUpdateRequest() {
+    document.querySelector(wrapper).style.display = 'none';
+}
