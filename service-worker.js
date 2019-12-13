@@ -19,7 +19,7 @@ const CURRENT_CACHES = {
     },
     other: {
         name: `other-cache-v-${CACHE_VERSION}`,
-        path: /\/ _nuxt\/.*/,
+        path: /\/(_nuxt|fonts|img)\/.*/,
         limit: 100,
     }
 };
@@ -32,12 +32,14 @@ const fallbackImage = '/img/pwa/fallback/fallbackImage.svg';
 
 
 const resourcesToPrecache = [
+    './',
     fallbackImage,
 ];
 
 const onInstall = event => {
     console.log('[SW] install', event);
     event.waitUntil( // install происходит перед тем, как cache готов, ФИКС - waitUntil
+        // Такая конструкция гарантирует, что сервис - воркер не будет установлен, пока код, переданный внутри waitUntil(), не завершится с успехом.
         caches.open(CURRENT_CACHES.core.name) // октрываем кеш с именем cacheName
             .then(cache => {
                 // cache.addAll([‘page2.html’]); // добавляем в кеш необязательные ресурсы
@@ -68,6 +70,7 @@ const onActivate = event => {
 
 const isInAccept = (e) => request.headers.get("Accept").includes(e)
 
+
 // отправляет ли браузер в запросах заголовок Save-Data.
 const { saveData } = navigator.connection || {}
 
@@ -84,39 +87,47 @@ const onFetch = event => {
 
     const currentCacheObj = Object.values(CURRENT_CACHES).find(curCache => request.url.match(curCache.path)) || CURRENT_CACHES.other
     const currentCacheName = currentCacheObj.name
-
-    if (saveData) { // в экономном режиме, для экономии, всегда отдавай фоллбек
+    /*
+      if (saveData) { // в экономном режиме, для экономии, всегда отдавай фоллбек
         if (/img\/logos/.test(request.url)) { // отдавай лого из фолбека, если чел выбрал экономный режим
-            event.respondWith(caches.match(fallbackImage));
+          event.respondWith(caches.match(fallbackImage));
         }
-    }
+      }*/
 
 
     event.respondWith(
-        caches.open(currentCacheName)
-            .then(cache => {
-                return cache.match(request)
-                    .then(res => {
-                        if (res) {
-                            console.warn('[SW] fetching from SW.... ')
-                            return res
-                        }
-                        return fetch(request) // STRATEGY - Stale While Revalidate
-                            .then(networkResponse => {
-                                console.log('[SW] cache.put =>', request, networkResponse)
-                                cache.put(request, networkResponse.clone())
-                                return networkResponse
-                            })
-                        throw new Error('Network error')
-                    })
-            })
-            .catch(error => {
-                debugger
-                if (isInAccept('image')) { // fallback for images
-                    return caches.match(fallbackImage)
-                }
-            })
-    )
+        caches.match(event.request).then((response) => {
+            return response || fetch(event.request);
+        })
+    );
+
+
+    /*   event.respondWith(
+         caches.open(currentCacheName)
+           .then(cache => {
+             return cache.match(request)
+               .then(res => {
+                 if (res) {
+                   console.warn('[SW] fetching from SW.. . . ')
+                   return res
+                 }
+                 return fetch(request) // STRATEGY - Stale While Revalidate
+                   .then(networkResponse => {
+                     console.log('[SW]  cache.put =>', request, networkResponse)
+                     cache.put(request, networkResponse.clone())
+                     return networkResponse
+                   })
+                 throw new Error('Network error')
+               })
+           })
+           .catch(error => {
+             debugger
+             if (isInAccept('image')) { // fallback for images
+               return caches.match(fallbackImage)
+             }
+           })
+       )
+     */
 }
 const onMessage = event => {
     console.warn('[SW] message => ', event)
@@ -127,15 +138,15 @@ const onMessage = event => {
 
 
 const onDownload = event => console.log('[SW] download =>', event);
-const onPush = event => console.log('[SW] push =>', event);
-const onSync = event => console.log('[SW] sync =>', event);
-const onRedundant = event => alert('[SW] redundant =>', event)
+const onPush = event => console.log('[SW] PPPUUUSSSHHH =>', event);
+const onSync = event => console.log('[SW] SYNC =>', event);
 
+self.addEventListener('download', onDownload) // кажется нету такого!
 self.addEventListener('install', onInstall);
 self.addEventListener('activate', onActivate)
-self.addEventListener('download', onDownload)
+self.addEventListener('message', onMessage);
+
+// => functional events:
 self.addEventListener('fetch', onFetch)
 self.addEventListener('push', onPush)
 self.addEventListener('sync', onSync)
-self.addEventListener('message', onMessage);
-self.addEventListener('redundant', onRedundant) // похоже, что такого нет, найти похожее надо

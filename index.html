@@ -8,89 +8,62 @@
     <title>Document</title>
 </head>
 <body>
-    <script>
-    const wrapper = '#pwa-notification';
-    const button = '#sw-reload'
-    var newWorker;
-    // The click event on the notification
-    document.querySelector('#sw-reload').addEventListener('click', function (e) {
-        e.preventDefault()
-        newWorker.postMessage({ action: 'skipWaiting' });
-    });
+    <script async type="text/javascript" src="/register-service-worker.js"></script>
+    <div style="display:none" id="pwa-notification">
+        Доступно обновление
+        <a href="" id="sw-reload">обновить</a>
+        <span class="closebtn" onclick="this.parentElement.style.display='none';">×</span>
+    </div>
+    <style>
+        #pwa-notification {
+            position: fixed;
+            right: 13px;
+            bottom: 12px;
+            padding: 13px 20px;
+            color: #fff;
+            background-color: #141518;
+        }
 
-    if ('serviceWorker' in window.navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(reg => {
-                    console.warn('[SW] 😀 registered! in scope', reg.scope, reg)
-                    reg.addEventListener('updatefound', () => {
-                        // An updated service worker has appeared in reg.installing!
-                        newWorker = reg.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            console.warn('[SW] , STATECHANGE => ', newWorker.state)
-                            // Has service worker state changed?
-                            switch (newWorker.state) {
-                                case 'installed':
-                                    // There is a new service worker available, show the notification
-                                    if (navigator.serviceWorker.controller) {
-                                        const notification = document.querySelector(wrapper);
-                                        notification.style.display = 'block';
-                                    }
-                                    break;
-                            }
-                        });
-                    });
+        #sw-reload {
+            color: #9fc0f7;
+        }
 
-                })
-                .catch(err => console.warn('[SW] 🥺 register error =>', err))
-        })
-    }
+        .closebtn {
+            margin-left: 15px;
+            color: white;
+            font-weight: bold;
+            float: right;
+            font-size: 22px;
+            line-height: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
 
-    let refreshing;
-    // The event listener that is fired when the service worker updates
-    // Here we reload the page
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (refreshing) return;
-        window.location.reload();
-        refreshing = true;
-    });
+        .closebtn:hover {
+            color: black;
+        }
 
-    </script>
+        #pwa-notification {
+            animation-duration: 1s;
+            animation-name: slidein;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+        }
 
-        <div style="display:none" id="pwa-notification">
-            Доступно обновление
-            <a href="" id="sw-reload">обновить</a>
-            <span class="closebtn" onclick="this.parentElement.style.display='none';">×</span>
-        </div>
-
-        <style>
-            #pwa-notification {
-                position: fixed;
-                right: 0;
-                bottom: 0;
-                padding: 13px 20px;
-                color: #fff;
-                background-color: #141518;
+        @keyframes slidein {
+            from {
+                right: 13px;
+                bottom: -70px;
             }
-        
-            #sw-reload {
-                color: #9fc0f7;
+
+            to {
+                right: 13px;
+                bottom: 12px;
             }
-        
-            .closebtn {
-                margin-left: 15px;
-                color: white;
-                font-weight: bold;
-                float: right;
-                font-size: 22px;
-                line-height: 20px;
-                cursor: pointer;
-                transition: 0.3s;
-            }
-        
-            .closebtn:hover {
-                color: black;
-            }
-        </style>
+        }
+    </style>
+
+
+
 </body>
 </html>
