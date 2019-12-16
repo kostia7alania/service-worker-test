@@ -1,4 +1,3 @@
-const scope = '/useful/konkurs-prognozov';
 const wrapper = '#pwa-notification';
 const button = '#sw-reload';
 
@@ -8,9 +7,12 @@ const isLoggedIn = /isLoggedIn=1/.test(document.cookie.toString())
 const usingSW = ('serviceWorker' in navigator)
 let svcWorker;
 
-initServiceWorker('/service-worker.js');
+const pathSW = '/service-worker.js'
+const scope = '/useful/konkurs-prognozov';
 
+initServiceWorker(pathSW, scope);
 
+/* **************** */
 
 document.addEventListener('DOMContentLoaded', onReady, false)
 
@@ -36,13 +38,13 @@ function onReady() {
 
 }
 
-async function initServiceWorker(path) {
+async function initServiceWorker(path, scope = "/") {
     if (!usingSW) return console.warn("[SW] SW aren't supported.");
 
     await navigator.serviceWorker.register(path, {
-            scope,
-            updateViaCache: 'none'
-        })
+        scope,
+        updateViaCache: 'none'
+    })
         .then(navigator.serviceWorker.ready)
         .then(regHandler)
         .catch(err => console.error('[SW] 🥺  register error =>', err))
@@ -50,7 +52,7 @@ async function initServiceWorker(path) {
 
 function regHandler(newSW) {
     console.warn('[SW] 😀 registered! in scope', newSW.scope, newSW)
-        // Do a one-off check to see if a service worker's in control.
+    // Do a one-off check to see if a service worker's in control.
     if (navigator.serviceWorker.controller) { console.warn(`[SW] This page is currently controlled by: ${navigator.serviceWorker.controller}`); } else { console.warn("[SW] This page isn't currently controlled by a SW."); }
     svcWorker = newSW.installing || newSW.waiting || newSW.active
     sendStatusUpdate(svcWorker);

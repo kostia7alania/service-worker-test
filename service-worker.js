@@ -1,49 +1,71 @@
-const CACHE_VERSION = '6.2.3';
+const CACHE_VERSION = '6.2.2';
 
 const CURRENT_CACHES = {
     core: {
         name: `core-cache-v-${CACHE_VERSION}`,
         path: null,
         limit: 100,
+        fallback: '',
     },
     js: {
         name: `js-cache-v-${CACHE_VERSION}`,
-        path: /\/_nuxt\/.*\.js/,
+        path: /\/(_nuxt|scripts)\/.*\.js/i,
         limit: 100,
+        fallback: '',
     },
     css: {
         name: `css-cache-v-${CACHE_VERSION}`,
-        path: /\/_nuxt\/.*\.css/,
+        path: /\/_nuxt\/.*\.css/i,
         limit: 100,
+        fallback: '',
+    },
+    img: {
+        name: `img-cache-v-${CACHE_VERSION}`,
+        path: /.*\.(svg|png|gif|ico|webp|wbmp|bmp|jpg|jpeg|jpe|tiff|jtiff)$/i,
+        limit: 100,
+        fallback: '/img/pwa/fallback/fallbackImage.svg',
+    },
+    fonts: {
+        name: `fonts-cache-v-${CACHE_VERSION}`,
+        path: /.*\.(WOFF2|WOFF|EOT|TTF)$/i,
+        limit: 100,
+        fallback: '',
     },
     other: {
         name: `other-cache-v-${CACHE_VERSION}`,
-        path: 'moex.com/', // /\/(_nuxt|fonts|img)\//,
+        path: /^https{0,1}:.*(moex\.com|localhost)\/.*/i, // все остальные запросы к нашему домену
         limit: 100,
+        fallback: '/offline.html',
     }
 };
+
 const WHITE_LIST = [
-    'https://api-marketplace.moex.com/',
-    'https://mpinv.beta.moex.com/',
-    'https://place.moex.com',
-    'http://develop.api.place.t2.beta.moex.com/',
-    'http://127.0.0.1:5500/'
+    'api-marketplace.moex.com',
+    'mpinv.beta.moex.com',
+    'place.moex.com',
+    //'develop.api.place.t2.beta.moex.com',
+    'localhost'
 ];
 
 const BLACK_LIST = [
     '__webpack_hmr'
 ];
 
-const fallbackImage = '/img/pwa/fallback/fallbackImage.svg';
+const fallbacks = Object.values(CURRENT_CACHES).reduce((a, { fallback = "" }) => { a.add(fallback); return a }, new Set())
 
-const resourcesToPrecache = [
+const CORE_CACHES = [
     './',
-    fallbackImage,
+    ...fallbacks
 ];
 
 self.addEventListener('install', onInstall);
 self.addEventListener('activate', onActivate)
+self.addEventListener('fetch', onFetch)
 self.addEventListener('message', onMessage);
+self.addEventListener('push', onPush)
+self.addEventListener('sync', onSync)
+
+
 
 main().catch(err => log('main err', err))
 
@@ -59,30 +81,14 @@ async function onInstall(evt) {
     evt.waitUntil( // install происходит перед тем, как cache готов, ФИКС - waitUntil
         // Такая конструкция гарантирует, что сервис - воркер не будет установлен, пока код, переданный внутри waitUntil(), не завершится с успехом.
         caches.open(CURRENT_CACHES.core.name) // октрываем кеш с именем cacheName
-        .then(cache => {
-            self.skipWaiting() // Activate worker immediately
+            .then(cache => {
+                self.skipWaiting() // Activate worker immediately
                 // cache.addAll([‘page2.html’]); // добавляем в кеш необязательные ресурсы
-            return cache.addAll(resourcesToPrecache) // добавляем в кеш обязательные ресурсы
-        })
-    )
-}
-async function sendSWMessage(msg) {
-    const allClients = await clients.matchAll({ includeUncontrolled: true })
-    return Promise.all(
-        allClients.map(function clientMsg(client) {
-            const chan = new MessageChannel();
-            chan.port1.onmessage = onMessage;
-            return client.postMessage(msg, [chan.port2]);
-        })
+                return cache.addAll(CORE_CACHES) // добавляем в кеш обязательные ресурсы
+            })
     )
 }
 
-function onMessage({ data }) {
-    if (data.statusUpdate) {
-        const { isOnline, isLoggedIn } = data.statusUpdate;
-        log(`status update, isOnline: ${isOnline}, isLoggedIn: ${isLoggedIn}`, data)
-    }
-}
 // Хук activated - идеально подходит для удаления из кеша, он запускается, когда код SW изменен.
 function onActivate(evt) {
     log('activate', evt)
@@ -104,19 +110,20 @@ async function handleActivation() {
                 })
             return Promise.all(clearCachePromises)
         })
-        //self.ClientRectList.claim() // start controlling all open clients without reloading them
+    //self.ClientRectList.claim() // start controlling all open clients without reloading them
     await clients.claim();
     log('activated')
 }
 
 
-const onFetch = event => {
-    //caches.match(event.request).then(res => res || fetch(e.request)) // CACHE FIRST
-    const request = event.request
-        // const url = new URL(event.request.url);
+function onFetch(evt) {
+    //caches.match(evt.request).then(res => res || fetch(e.request)) // CACHE FIRST
+    const request = evt.request
+    //const url = new URL(evt.request.url);
+    const currentDomain = getHostName(request.url)
     if (request.method !== 'GET' ||
         //url.origin !== location.origin || // same-origin
-        !WHITE_LIST.find(item => request.url.startsWith(item)) ||
+        !WHITE_LIST.find(domain => domain === currentDomain) ||
         BLACK_LIST.find(item => request.url.match(item))) {
         log('fetch skipped', request)
         return;
@@ -125,42 +132,53 @@ const onFetch = event => {
     // отправляет ли браузер в запросах заголовок Save-Data.
     if (saveData) { // в экономном режиме, для экономии, всегда отдавай фоллбек
     if (/img\/logos/.test(request.url)) { // отдавай лого из фолбека, если чел выбрал экономный режим
-        event.respondWith(caches.match(fallbackImage));
+        evt.respondWith(caches.match(CURRENT_CACHES.img.fallback));
     }
     }*/
-    const currentCacheObj = Object.values(CURRENT_CACHES).find(curCache => request.url.match(curCache.path)) || CURRENT_CACHES.other // находит первое совпадение
-    const CACHE_NAME = currentCacheObj.name // берем КЕШ, соотвествующий запросу
+    const DYNAMIC_CACHE_OBJ = Object.values(CURRENT_CACHES).find(curCache => request.url.match(curCache.path)) || CURRENT_CACHES.other // находит первое совпадение
+    const DYNAMIC_CACHE_NAME = DYNAMIC_CACHE_OBJ.name // берем КЕШ, соотвествующий запросу
 
-
-    event.respondWith(
+    evt.respondWith(
         caches.match(request, { ignoreMethod: true })
-        .then(resCached => {
-            if (resCached) {
-                log('fetching from SW . . . ', evt)
-                return resCached
-            }
-            return fetch(request, { mode: 'no-cors', credentials: 'include' }) // если нет в кеше, берем из инета и кладем в кеш
-                .then(resFresh => {
-                    const resCloned = resFresh.clone();
-                    // Check if we received a valid response
-                    if (!resFresh || resFresh.status !== 200 /*|| resFresh.type !== 'basic'*/ ) { // the response type is basic, which indicates that it's a request from our origin. This means that requests to third party assets aren't cached as well.
-                        return resFresh;
-                    }
-                    caches.open(CACHE_NAME)
-                        .then(cache => {
-                            log('cache.put', request)
-                            cache.put(request, resCloned);
-                        });
-                    return resFresh
-                })
-        })
-        .catch(error => {
-            /*if ( request.headers.get("Accept").includes('image') ) { // fallback for images
-              return caches.match(fallbackImage)
-            }*/
-        })
+            .then(resCached => {
+                if (resCached) {
+                    log('fetching from SW . . . ', evt)
+                    return resCached
+                }
+                return fetch(request, { /*mode: 'no-cors',*/ credentials: 'include' }) // если нет в кеше, берем из инета и кладем в кеш
+                    .then(resFresh => {
+                        const resCloned = resFresh.clone();
+                        // Check if we received a valid response
+                        if (!resFresh || resFresh.status !== 200 /*|| resFresh.type !== 'basic'*/) { // the response type is basic, which indicates that it's a request from our origin. This means that requests to third party assets aren't cached as well.
+                            return resFresh;
+                        }
+                        caches.open(DYNAMIC_CACHE_NAME)
+                            .then(cache => {
+                                log('cache.put', request)
+                                cache.put(request, resCloned);
+                            });
+                        return resFresh
+                    })
+            })
+            .catch(err => {
+
+                const res = caches.open(DYNAMIC_CACHE_NAME).then(cache => cache.match(DYNAMIC_CACHE_OBJ.fallback) || err);
+                debugger
+                return res;
+                // if (request.headers.get("Accept") === "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3") { // fallback for images
+                //   return caches.open(CURRENT_CACHES.other.name).then(cache => cache.match(CURRENT_CACHES.other.fallback)); // запрос HTML-страницы
+                //  }
+                /*
+                if (request.headers.get("Accept").includes('image')) { // fallback for images
+                  return caches.match(CURRENT_CACHES.img.fallback)
+                }
+                */
+            })
     )
 }
+
+
+// ************** help functions ************ //
 
 function onMessage(evt) {
     log('message', evt)
@@ -169,23 +187,24 @@ function onMessage(evt) {
     }
 }
 
+async function sendSWMessage(msg) {
+    const allClients = await clients.matchAll({ includeUncontrolled: true })
+    return Promise.all(
+        allClients.map(function clientMsg(client) {
+            const chan = new MessageChannel();
+            chan.port1.onmessage = onMessage;
+            return client.postMessage(msg, [chan.port2]);
+        })
+    )
+}
 
+function onMessage({ data }) {
+    if (data.statusUpdate) {
+        const { isOnline, isLoggedIn } = data.statusUpdate;
+        log(`status update, isOnline: ${isOnline}, isLoggedIn: ${isLoggedIn}`, data)
+    }
+}
 
-
-
-const onDownload = evt => log('onDownload', evt);
-const onPush = evt => log('onPush', evt);
-const onSync = evt => log('onSync', evt);
-
-self.addEventListener('download', onDownload) // кажется нету такого!
-
-// => functional events:
-self.addEventListener('fetch', onFetch)
-self.addEventListener('push', onPush)
-self.addEventListener('sync', onSync)
-
-
-// help functions // 
 function log(msg, ...evt) {
     console.log(`[SW] ${CACHE_VERSION} ${msg}`, ...evt)
 }
@@ -193,3 +212,17 @@ function log(msg, ...evt) {
 function expectedCacheKeys() {
     return Object.values(CURRENT_CACHES).map(({ name }) => name).filter(cacheKey => cacheKey.endsWith(CACHE_VERSION))
 }
+
+function getHostName(url) {
+    var match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+    if (match != null && match.length > 2 && typeof match[2] === 'string' && match[2].length > 0) {
+        return match[2];
+    }
+    else {
+        return null;
+    }
+}
+
+
+function onPush(evt) { log('onPush', evt); }
+function onSync(evt) { log('onSync', evt); }
