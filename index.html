@@ -1,69 +1,51 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <link rel="stylesheet" href="/pwa-styles.css">
+    <link rel="stylesheet" href="/styles.css">
+    <title>PWA-tests</title>
 </head>
+
 <body>
-    <script async type="text/javascript" src="/register-service-worker.js"></script>
-    <div style="display:none" id="pwa-notification">
+    <main class="main">
+        <header class="header">
+            <button class="button refresh">TOGGLE</button>
+        </header>
+
+        <section class=" section ">
+            <div class="elem "><img class="img " src="/img/1.jpg "></div>
+            <div class="elem "><img class="img " src="/img/2.jpg "></div>
+            <div class="elem "><img class="img " src="/img/3.jpg "></div>
+        </section>
+        <section class="section ">
+            <div class="elem "><img class="img " src="/img/4.jpg "></div>
+            <div class="elem "><img class="img " src="/img/5.jpg "></div>
+            <div class="elem "><img class="img " src="/img/6.jpg "></div>
+        </section>
+        <section class="section ">
+            <div class="elem "><img class="img " src="/img/7.jpg "></div>
+            <div class="elem "><img class="img " src="/img/8.jpg "></div>
+            <div class="elem "><img class="img " src="/img/9.jpg "></div>
+        </section>
+        <section class="section ">
+            <div class="elem "><img class="img " src="/img/10.jpg "></div>
+            <div class="elem "><img class="img " src="/img/12.jpg "></div>
+            <div class="elem "><img class="img " src="https://loremflickr.com/640/360"></div>
+        </section>
+    </main>
+    <div style="display:none " id="pwa-notification ">
         Доступно обновление
-        <a href="" id="sw-reload">обновить</a>
-        <span class="closebtn" onclick="this.parentElement.style.display='none';">×</span>
+        <a href=" " id="sw-reload ">обновить</a>
+        <span class="closebtn " onclick="this.parentElement.style.display='none' ; ">×</span>
     </div>
-    <style>
-        #pwa-notification {
-            position: fixed;
-            right: 13px;
-            bottom: 12px;
-            padding: 13px 20px;
-            color: #fff;
-            background-color: #141518;
-        }
 
-        #sw-reload {
-            color: #9fc0f7;
-        }
-
-        .closebtn {
-            margin-left: 15px;
-            color: white;
-            font-weight: bold;
-            float: right;
-            font-size: 22px;
-            line-height: 20px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .closebtn:hover {
-            color: black;
-        }
-
-        #pwa-notification {
-            animation-duration: 1s;
-            animation-name: slidein;
-            animation-iteration-count: infinite;
-            animation-direction: alternate;
-        }
-
-        @keyframes slidein {
-            from {
-                right: 13px;
-                bottom: -70px;
-            }
-
-            to {
-                right: 13px;
-                bottom: 12px;
-            }
-        }
-    </style>
-
-
+    <script async type="text/javascript " src="/register-service-worker.js "></script>
+    <script src="/script.js "></script>
 
 </body>
+
 </html>
